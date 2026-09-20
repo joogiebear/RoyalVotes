@@ -1,0 +1,156 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  RoyalVotes
+#
+#  RoyalVotes IS the vote receiver — do not install Votifier or NuVotifier next
+#  to it. Moving over from one of them? Copy its "rsa" folder into
+#  plugins/RoyalVotes/ and every vote site keeps working with no changes.
+#
+#  Test everything without a vote site:   /royalvotes fakevote <player>
+# ─────────────────────────────────────────────────────────────────────────────
+
+settings:
+  # Logs every vote, and every rejected connection with the reason. Turn on when
+  # a vote site's "test vote" is not arriving; leave off otherwise — the port is
+  # public and scanners will fill the log.
+  debug: false
+  # Decides when a "day" starts for streaks and the join reminder, e.g.
+  # America/Chicago. Blank uses the server's own timezone.
+  timezone: ""
+
+# Where vote sites connect. The port must be open in your firewall / forwarded by
+# your host, and is what you enter on each vote site along with your server IP.
+listener:
+  enabled: true
+  host: 0.0.0.0
+  port: 8192
+  # The original Votifier protocol, which most vote sites still use. The key to
+  # paste into the site is plugins/RoyalVotes/rsa/public.key (created on first run).
+  v1-enabled: true
+  # Tokens for the newer v2 protocol. "default" is generated on first run and
+  # works for every site; add a line per site only if you want separate tokens:
+  #   PlanetMinecraft.com: "some-other-token"
+  tokens:
+    default: ""
+
+# Votes for players who are offline wait here and are paid out when they join.
+# The standard vote event is fired then too, so plugins that only count votes for
+# online players — EcoBattlepass's vote task is one — do not miss them.
+offline:
+  max-per-player: 20
+  # Queued votes older than this are dropped (a typo'd username never joins).
+  expire-days: 7
+  # How long after joining before queued votes are paid out. Gives other plugins
+  # time to load the player's data first. 20 ticks = 1 second.
+  join-delay-ticks: 60
+
+# Every reward, anywhere in this file, takes the same three optional keys:
+#   commands:  run from the console
+#   messages:  sent to the player
+#   broadcast: sent to everyone
+# Placeholders: %player% %service% %total% %streak% %best_streak%, plus anything
+# from PlaceholderAPI when it is installed.
+rewards:
+  # Paid for every vote.
+  vote:
+    commands:
+      - "give %player% diamond 1"
+      # Some examples for an eco server:
+      # - "ecocrates give %player% vote 1"
+      # - "ecobits give %player% crystals 5"
+    messages:
+      - "&a&lVOTE &8» &7Thanks for voting on &f%service%&7! &8(&f%total% &7total&8)"
+    broadcast: "&a&lVOTE &8» &f%player% &7voted and got a reward. &e/vote"
+
+  # Replaces the reward above for votes from one particular site. "service" is
+  # the name the site sends — turn on debug and vote once to see it.
+  services: {}
+  #  pmc:
+  #    service: "PlanetMinecraft.com"
+  #    commands:
+  #      - "give %player% diamond 2"
+
+  # Extra rewards rolled on top of every vote. chance is a percentage.
+  bonus:
+    lucky:
+      chance: 5
+      commands:
+        - "give %player% emerald 8"
+      messages:
+        - "&a&lVOTE &8» &6Lucky vote! &7You got a bonus reward."
+
+# Consecutive days with at least one vote. Several sites on one day still count
+# as one day, and a streak reward is paid once for that day.
+streaks:
+  enabled: true
+  # Days a player may miss without losing their streak.
+  grace-days: 0
+  # Keyed by streak length: a number pays once at exactly that streak, every-N
+  # pays each time the streak reaches a multiple of N.
+  rewards:
+    3:
+      commands:
+        - "give %player% diamond 3"
+      messages:
+        - "&a&lVOTE &8» &73-day vote streak!"
+    every-7:
+      commands:
+        - "give %player% diamond_block 1"
+      broadcast: "&a&lVOTE &8» &f%player% &7is on a &f%streak%&7-day vote streak!"
+
+# Lifetime vote totals. Same keys as streak rewards: a number, or every-N.
+milestones:
+  50:
+    commands:
+      - "give %player% netherite_ingot 1"
+    broadcast: "&a&lVOTE &8» &f%player% &7has voted &f50 &7times!"
+  every-100:
+    commands:
+      - "give %player% netherite_ingot 2"
+    broadcast: "&a&lVOTE &8» &f%player% &7has voted &f%total% &7times!"
+
+# A server-wide counter. Every vote counts, including votes for offline players;
+# when it reaches "required" everyone online is rewarded and it starts again.
+party:
+  enabled: true
+  required: 50
+  # Announce when this many votes are left.
+  announce-remaining: [25, 10, 5, 1]
+  announce-message: "&d&lVOTE PARTY &8» &f%remaining% &7more votes until a vote party! &e/vote"
+  broadcast: "&d&lVOTE PARTY &8» &7The vote party has started — rewards for everyone online!"
+  # Run once, from the console.
+  global-commands: []
+  # Given to each online player. Only %player% and PlaceholderAPI apply here.
+  player-reward:
+    commands:
+      - "give %player% diamond 5"
+    messages:
+      - "&d&lVOTE PARTY &8» &7You received a vote party reward."
+
+# Shown on join (after join-delay-ticks) to players who have not voted today.
+reminder:
+  enabled: true
+  messages:
+    - "&a&lVOTE &8» &7You have not voted today. &e/vote &7for rewards!"
+
+# /vote. Lines with an http(s) url are clickable.
+# Header and footer placeholders: %total% %streak% %party_current% %party_required%
+links:
+  header:
+    - ""
+    - "&a&lVote for the server &8— &7click a site:"
+  line: "  &8» &e%name%"
+  sites:
+    - name: "Example Site 1"
+      url: "https://example.com/vote1"
+    - name: "Example Site 2"
+      url: "https://example.com/vote2"
+  footer:
+    - "  &7Your votes: &f%total%  &7Streak: &f%streak%  &7Party: &f%party_current%&7/&f%party_required%"
+    - ""
+
+# Blank a message to silence it.
+messages:
+  queued-delivered: "&a&lVOTE &8» &7You received rewards for &f%amount% &7vote(s) cast while you were away."
+  top-header: "&a&lTop voters &8(&7page %page%/%pages%&8)"
+  top-line: "  &f%rank%. &e%player% &8— &f%total%"
+  top-empty: "  &7Nobody has voted yet."
