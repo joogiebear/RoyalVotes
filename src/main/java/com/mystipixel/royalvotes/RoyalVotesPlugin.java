@@ -8,6 +8,8 @@ import com.mystipixel.royalvotes.hook.VotesExpansion;
 import com.mystipixel.royalvotes.net.RsaKeys;
 import com.mystipixel.royalvotes.net.VoteServer;
 import com.vexsoftware.votifier.model.Vote;
+import org.bstats.bukkit.Metrics;
+import org.bstats.charts.SimplePie;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
@@ -35,6 +37,8 @@ import java.util.logging.Level;
 public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
 
     private static final long HOUSEKEEPING_TICKS = 20L * 60;
+    /** bStats project id. Identifies the plugin, not the server, so it is fixed rather than configurable. */
+    private static final int BSTATS_PLUGIN_ID = 34176;
 
     private VoteStore store;
     private VoteService votes;
@@ -84,7 +88,28 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
             store.saveIfDirty(true);
         }, HOUSEKEEPING_TICKS, HOUSEKEEPING_TICKS);
 
+        setupMetrics();
         getLogger().info("RoyalVotes enabled — " + votes.rewardCount() + " reward(s) configured.");
+    }
+
+    /**
+     * Anonymous usage reporting via bStats.
+     *
+     * <p>Server owners who want no reporting disable it globally in plugins/bStats/config.yml, which
+     * is the mechanism bStats provides; the id itself is fixed because it names this plugin's project.
+     */
+    private void setupMetrics() {
+        Metrics metrics = new Metrics(this, BSTATS_PLUGIN_ID);
+        // The reason this plugin exists: is it actually being used to feed the eco suite?
+        // The enum name, not libreforgeSummary(): that is a sentence for an admin, not a pie label.
+        metrics.addCustomChart(new SimplePie("libreforge_hook",
+                () -> libreforge.name().toLowerCase(java.util.Locale.ROOT)));
+        metrics.addCustomChart(new SimplePie("v1_enabled",
+                () -> String.valueOf(getConfig().getBoolean("listener.v1-enabled", true))));
+        metrics.addCustomChart(new SimplePie("vote_party",
+                () -> String.valueOf(votes.partyEnabled())));
+        metrics.addCustomChart(new SimplePie("placeholderapi",
+                () -> String.valueOf(Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI"))));
     }
 
     @Override
