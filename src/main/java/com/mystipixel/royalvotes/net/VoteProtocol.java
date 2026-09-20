@@ -34,7 +34,10 @@ public final class VoteProtocol {
     private VoteProtocol() {
     }
 
-    /** Thrown for anything wrong with what the client sent. The message is safe to log. */
+    /**
+     * Thrown for anything wrong with what the client sent. The message is safe to log, and is ASCII
+     * only: v2 sends it back to the vote site, whose test page may not decode anything else.
+     */
     public static final class VoteException extends Exception {
         public VoteException(String message) {
             super(message);
@@ -99,7 +102,7 @@ public final class VoteProtocol {
             cipher.init(Cipher.DECRYPT_MODE, rsaKey);
             text = new String(cipher.doFinal(block), StandardCharsets.UTF_8);
         } catch (Exception undecryptable) {
-            throw new VoteException("v1 vote could not be decrypted — the site has the wrong public key",
+            throw new VoteException("v1 vote could not be decrypted: the site has the wrong public key",
                     undecryptable);
         }
         String[] lines = text.split("\n");
@@ -151,7 +154,7 @@ public final class VoteProtocol {
         }
         // Constant-time, so response timing says nothing about how much of the signature matched.
         if (!MessageDigest.isEqual(expected, given)) {
-            throw new VoteException("v2 signature did not match — the site has the wrong token for '"
+            throw new VoteException("v2 signature did not match: the site has the wrong token for '"
                     + service + "'");
         }
         if (!challenge.equals(string(payload, "challenge"))) {
