@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * One bundle of things that happen: console commands, lines to the player, a server-wide broadcast.
- * Every reward in the config — per vote, bonus, streak, milestone, party — is this same shape.
+ * Console commands, lines to the player and a server-wide broadcast. Every reward in the config (vote,
+ * bonus, streak, milestone, party) has this shape.
  */
 public record Reward(List<String> commands, List<String> messages, String broadcast) {
 

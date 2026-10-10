@@ -27,20 +27,16 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
- * What happens to a vote once it has arrived. Main-thread only.
- *
- * <p>A vote is split in two. The part that belongs to the server — the vote-party counter — is
- * counted the moment it arrives. The part that belongs to the player — totals, streak, rewards, and
- * the {@link VotifierEvent} other plugins listen for — waits until they are online, because a reward
- * command aimed at an offline player fails and libreforge's trigger ignores them outright.
+ * What happens to a vote once it has arrived. Main-thread only. The party counter counts on arrival;
+ * totals, streak, rewards and the {@link VotifierEvent} wait until the player is online, because reward
+ * commands fail for offline players and libreforge's trigger ignores them.
  */
 public final class VoteService {
 
-    /** Java names, plus the '.' or '*' prefix Geyser/Floodgate servers put on Bedrock players. */
+    // Java names, plus the '.' or '*' prefix Geyser/Floodgate servers put on Bedrock players
     private static final Pattern USERNAME = Pattern.compile("[.*]?[A-Za-z0-9_]{1,16}");
     private static final Pattern UNSAFE_SERVICE = Pattern.compile("[^A-Za-z0-9._-]");
 
-    /** A chance-based extra on top of the normal vote reward. */
     private record Bonus(String id, double chance, Reward reward) {
     }
 
@@ -156,7 +152,6 @@ public final class VoteService {
         store.saveIfDirty(true);
     }
 
-    /** Pay out whatever arrived while this player was away. */
     public void deliverQueued(Player player) {
         List<PendingVote> votes = store.drain(player.getName());
         if (votes.isEmpty()) {
@@ -254,7 +249,6 @@ public final class VoteService {
         }
     }
 
-    /** Housekeeping, run on the autosave timer. */
     public void expireQueue() {
         int removed = store.expire(System.currentTimeMillis() - expireMillis);
         if (removed > 0 && plugin.debug()) {
@@ -290,7 +284,7 @@ public final class VoteService {
         return 1 + serviceRewards.size() + bonuses.size() + streakRewards.size() + milestoneRewards.size();
     }
 
-    /** Service names end up inside console commands, so they are reduced to characters that cannot break one. */
+    // service names end up inside console commands, so strip anything that could break one
     static String sanitiseService(String service) {
         if (service == null || service.isBlank()) {
             return "unknown";

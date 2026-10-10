@@ -14,7 +14,7 @@ import org.bukkit.entity.Player;
 import java.util.List;
 import java.util.Map;
 
-/** {@code /vote} — the vote links, clickable — and {@code /votetop}. */
+/** {@code /vote} (clickable vote links) and {@code /votetop}. */
 public final class VoteCommand implements CommandExecutor {
 
     private static final int PAGE_SIZE = 10;

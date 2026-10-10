@@ -1,12 +1,9 @@
 package com.vexsoftware.votifier.model;
 
 /**
- * A vote, in the shape every Votifier listener expects.
- *
- * <p>This lives in {@code com.vexsoftware} rather than our own package on purpose: plugins that react
- * to votes (libreforge's {@code register_vote} trigger among them) are compiled against this exact
- * class name, so providing it is what lets RoyalVotes stand in for Votifier. It is an independent
- * implementation of that public surface, not a copy of Votifier's source.
+ * A vote, in the shape every Votifier listener expects. It lives in {@code com.vexsoftware} because
+ * plugins that react to votes (libreforge's {@code register_vote} among them) are compiled against this
+ * class name. An independent implementation of that public surface, not a copy of Votifier's source.
  */
 public class Vote {
 

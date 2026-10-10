@@ -7,18 +7,10 @@ import java.lang.reflect.Method;
 import java.util.logging.Logger;
 
 /**
- * Switches on libreforge's {@code register_vote} trigger and {@code vote_service} filter — the pieces
- * EcoBattlepass's {@code vote_server} task is built from.
- *
- * <p>libreforge ships that integration but only loads it when a plugin whose real name is "Votifier"
- * is installed; eco compares plugin names directly, so our {@code provides: [Votifier]} does not
- * count. Rather than take Votifier's name, we call the integration's own {@code load} ourselves. It
- * registers libreforge's classes, not ours, so everything downstream behaves exactly as it would
- * with Votifier present.
- *
- * <p>Reflection, because libreforge is loaded at runtime by whichever eco plugin enables first and is
- * not something we can compile or link against. The surface touched is one object and one method; if
- * either moves, this logs what to do and the rest of the plugin carries on.
+ * Switches on libreforge's {@code register_vote} trigger and {@code vote_service} filter, which
+ * EcoBattlepass's {@code vote_server} task is built from. libreforge only loads that integration when a
+ * plugin really named "Votifier" is installed ({@code provides} does not count), so we call its own
+ * {@code load} by reflection: libreforge is loaded at runtime and cannot be linked against.
  */
 public final class LibreforgeHook {
 
@@ -58,7 +50,7 @@ public final class LibreforgeHook {
         }
     }
 
-    /** {@code Triggers.get("register_vote") != null}, reflectively. A hit also enables it, which is wanted. */
+    // Triggers.get("register_vote") != null, reflectively; a hit also enables it, which is wanted
     private static boolean triggerExists(ClassLoader loader) {
         try {
             Class<?> triggers = Class.forName("com.willfp.libreforge.triggers.Triggers", true, loader);
