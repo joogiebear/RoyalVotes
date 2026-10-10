@@ -152,6 +152,8 @@ public final class VoteService {
             plugin.getLogger().warning(username + " already has " + maxQueued + " votes queued;"
                     + " dropped one from " + service + ".");
         }
+        // rewards are already paid; a crash before the autosave would roll totals back and pay again
+        store.saveIfDirty(true);
     }
 
     /** Pay out whatever arrived while this player was away. */
@@ -168,6 +170,7 @@ public final class VoteService {
                 delivered++;
             }
         }
+        store.saveIfDirty(true);
         if (delivered > 0) {
             String message = plugin.message("queued-delivered");
             if (!message.isEmpty()) {
