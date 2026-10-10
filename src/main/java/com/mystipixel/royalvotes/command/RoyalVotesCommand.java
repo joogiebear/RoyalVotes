@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** {@code /royalvotes} admin tools. */
 public final class RoyalVotesCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of("reload", "status", "fakevote", "stats", "party");
@@ -46,8 +45,7 @@ public final class RoyalVotesCommand implements CommandExecutor, TabCompleter {
                     say(sender, "&cUsage: /" + label + " fakevote <player> [service]");
                     return true;
                 }
-                // Goes through the same door as a real vote, so it exercises the queue, the rewards
-                // and the VotifierEvent — which is what makes it a useful test of a battlepass task.
+                // same path as a real vote: exercises the queue, rewards and VotifierEvent (battlepass tasks)
                 String service = args.length > 2 ? args[2] : "fakevote";
                 plugin.votes().receive(new Vote(service, args[1], "127.0.0.1",
                         String.valueOf(System.currentTimeMillis() / 1000)));
@@ -65,7 +63,7 @@ public final class RoyalVotesCommand implements CommandExecutor, TabCompleter {
                     say(sender, "&f" + args[1] + " &7has no delivered votes. Queued: &f" + queued);
                     return true;
                 }
-                say(sender, "&f" + stats.name() + "&7 — total &f" + stats.total() + "&7, streak &f"
+                say(sender, "&f" + stats.name() + "&7: total &f" + stats.total() + "&7, streak &f"
                         + plugin.votes().liveStreak(stats) + "&7 (best &f" + stats.bestStreak()
                         + "&7), queued &f" + queued);
             }

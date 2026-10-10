@@ -15,11 +15,8 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 /**
- * The v1 key pair, stored as {@code rsa/public.key} and {@code rsa/private.key}.
- *
- * <p>Same file names and encoding (base64 of the X.509 / PKCS#8 bytes) as Votifier and NuVotifier, so
- * a server moving over can drop its existing {@code rsa} folder in and keep every vote site working
- * without re-entering a key anywhere.
+ * The v1 key pair in {@code rsa/public.key} and {@code rsa/private.key}, with the same names and encoding
+ * (base64 of the X.509 / PKCS#8 bytes) as Votifier and NuVotifier, so an existing rsa folder drops in.
  */
 public final class RsaKeys {
 

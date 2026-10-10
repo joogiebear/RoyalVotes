@@ -17,18 +17,17 @@ import java.util.Base64;
 import java.util.function.Function;
 
 /**
- * The two Votifier wire protocols, with no Bukkit in sight so they can be tested against plain streams.
+ * The two Votifier wire protocols, free of Bukkit so they can be tested against plain streams.
  *
- * <p>Both start the same way: the server greets with {@code VOTIFIER 2 <challenge>}. A v1 client
- * ignores the challenge and sends one 256-byte RSA block. A v2 client sends the magic {@code 0x733A},
- * a length, and a JSON envelope whose payload is signed with a shared token and must echo the
- * challenge — which is what stops a captured vote being replayed.
+ * <p>The server greets with {@code VOTIFIER 2 <challenge>}. A v1 client ignores the challenge and sends
+ * one 256-byte RSA block. A v2 client sends the magic {@code 0x733A}, a length, and a JSON envelope whose
+ * payload is signed with a shared token and must echo the challenge, which stops replayed votes.
  */
 public final class VoteProtocol {
 
     private static final int V2_MAGIC = 0x733A;
     private static final int V1_BLOCK = 256;
-    /** A real v2 message is a few hundred bytes; the length field allows 64k, which we don't need. */
+    // a real v2 message is a few hundred bytes; the length field allows 64k, which we don't need
     private static final int V2_MAX_LENGTH = 4096;
 
     private VoteProtocol() {

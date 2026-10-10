@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Builds votes the way a vote site does and checks they come out the other side. */
 class VoteProtocolTest {
 
     private static final String CHALLENGE = "challenge123";

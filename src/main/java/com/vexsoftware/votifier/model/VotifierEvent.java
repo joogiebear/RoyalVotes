@@ -5,10 +5,8 @@ import org.bukkit.event.HandlerList;
 
 /**
  * Fired on the main thread for each vote. See {@link Vote} for why this sits in {@code com.vexsoftware}.
- *
- * <p>RoyalVotes fires this only while the voter is online — immediately, or on their next join for a
- * vote that arrived while they were away — because listeners such as libreforge's trigger discard
- * votes for players they cannot find.
+ * Fired only while the voter is online (immediately, or on their next join), because listeners such as
+ * libreforge's trigger discard votes for players they cannot find.
  */
 public class VotifierEvent extends Event {
 

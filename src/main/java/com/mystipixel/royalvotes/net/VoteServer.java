@@ -23,11 +23,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Listens for vote sites.
- *
- * <p>Plain blocking sockets on a small bounded pool, not Netty: a busy server sees a few votes a
- * minute, and the port is reachable by anyone on the internet, so the things that matter are a short
- * read timeout and a hard cap on concurrent connections — both of which are one line each here.
+ * Listens for vote sites. Plain blocking sockets on a small bounded pool: the port is public, so what
+ * matters is a short read timeout and a hard cap on concurrent connections.
  */
 public final class VoteServer {
 
@@ -48,7 +45,7 @@ public final class VoteServer {
 
     /**
      * @param rsaKey null refuses v1 votes
-     * @param onVote called on a worker thread — the receiver hops to the main thread itself
+     * @param onVote called on a worker thread; the receiver hops to the main thread itself
      */
     public VoteServer(Logger logger, String host, int port, PrivateKey rsaKey,
                       Function<String, String> tokenLookup, Consumer<Vote> onVote, boolean debug) {
@@ -130,8 +127,7 @@ public final class VoteServer {
             Vote vote = VoteProtocol.read(in, out, challenge, rsaKey, tokenLookup);
             onVote.accept(vote);
         } catch (VoteProtocol.VoteException rejected) {
-            // Port scanners hit this constantly, so it is only worth a line when someone is debugging
-            // a vote site that will not connect.
+            // port scanners hit this constantly, so only log it while debugging a vote site
             if (debug) {
                 logger.warning("Rejected vote from " + remote + ": " + rejected.getMessage());
             }

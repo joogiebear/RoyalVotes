@@ -27,17 +27,13 @@ import java.util.Map;
 import java.util.logging.Level;
 
 /**
- * A vote receiver and a vote-reward plugin in one jar.
- *
- * <p>It speaks the Votifier protocols itself and fires the standard {@code VotifierEvent}, so nothing
- * else needs installing for votes to arrive — and it holds votes for offline players until they join,
- * which a bare Votifier does not, and which is the difference between a battlepass vote task that
- * counts every vote and one that counts only the votes cast while logged in.
+ * Vote receiver and vote-reward plugin in one jar. It speaks the Votifier protocols, fires the standard
+ * {@code VotifierEvent}, and holds votes for offline players until they join.
  */
 public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
 
     private static final long HOUSEKEEPING_TICKS = 20L * 60;
-    /** bStats project id. Identifies the plugin, not the server, so it is fixed rather than configurable. */
+    // identifies the plugin, not the server, so it is fixed rather than configurable
     private static final int BSTATS_PLUGIN_ID = 34176;
 
     private VoteStore store;
@@ -52,7 +48,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         if (Bukkit.getPluginManager().getPlugin("Votifier") != null
                 && Bukkit.getPluginManager().getPlugin("Votifier") != this) {
             // Two receivers would fight over the port and both define the com.vexsoftware classes.
-            getLogger().severe("Another Votifier plugin is installed. RoyalVotes replaces it — remove"
+            getLogger().severe("Another Votifier plugin is installed. RoyalVotes replaces it: remove"
                     + " NuVotifier/Votifier (its rsa folder can be copied into plugins/RoyalVotes) and"
                     + " restart. Disabling.");
             getServer().getPluginManager().disablePlugin(this);
@@ -89,18 +85,12 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }, HOUSEKEEPING_TICKS, HOUSEKEEPING_TICKS);
 
         setupMetrics();
-        getLogger().info("RoyalVotes enabled — " + votes.rewardCount() + " reward(s) configured.");
+        getLogger().info("RoyalVotes enabled, " + votes.rewardCount() + " reward(s) configured.");
     }
 
-    /**
-     * Anonymous usage reporting via bStats.
-     *
-     * <p>Server owners who want no reporting disable it globally in plugins/bStats/config.yml, which
-     * is the mechanism bStats provides; the id itself is fixed because it names this plugin's project.
-     */
+    // owners who want no reporting disable it globally in plugins/bStats/config.yml
     private void setupMetrics() {
         Metrics metrics = new Metrics(this, BSTATS_PLUGIN_ID);
-        // The reason this plugin exists: is it actually being used to feed the eco suite?
         // The enum name, not libreforgeSummary(): that is a sentence for an admin, not a pie label.
         metrics.addCustomChart(new SimplePie("libreforge_hook",
                 () -> libreforge.name().toLowerCase(java.util.Locale.ROOT)));
@@ -122,11 +112,8 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    /**
-     * libreforge is loaded at runtime by whichever eco plugin enables first, which may be after us, so
-     * the hook is tried at our enable and again whenever libreforge itself enables. Both happen before
-     * eco plugins compile their configs on the first tick, which is when the trigger has to exist.
-     */
+    // libreforge is loaded by whichever eco plugin enables first, possibly after us, so retry when it
+    // enables. Both chances come before eco plugins compile their configs on the first tick.
     @EventHandler
     public void onPluginEnable(PluginEnableEvent event) {
         if (event.getPlugin().getName().equalsIgnoreCase("libreforge")) {
@@ -140,7 +127,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }
         libreforge = LibreforgeHook.hook(getLogger());
         if (libreforge == LibreforgeHook.Result.HOOKED) {
-            getLogger().info("Enabled libreforge's register_vote trigger — EcoBattlepass and other eco"
+            getLogger().info("Enabled libreforge's register_vote trigger. EcoBattlepass and other eco"
                     + " plugins can now react to votes.");
         }
     }
@@ -170,7 +157,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
             try {
                 keys = RsaKeys.loadOrCreate(new File(getDataFolder(), "rsa"));
             } catch (Exception unreadable) {
-                getLogger().log(Level.SEVERE, "Could not load or create the RSA keys in rsa/ — v1 votes"
+                getLogger().log(Level.SEVERE, "Could not load or create the RSA keys in rsa/, v1 votes"
                         + " will be refused until this is fixed", unreadable);
             }
         }
@@ -190,12 +177,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    /**
-     * Tokens by service name, generating the default on first run.
-     *
-     * <p>Read with deep keys: Bukkit splits "PlanetMinecraft.com" into nested sections at the dot, and
-     * {@code getValues(true)} joins them back into the name the vote site will actually send.
-     */
+    // deep keys: Bukkit splits "PlanetMinecraft.com" at the dot and getValues(true) joins it back
     private Map<String, String> loadTokens(ConfigurationSection listener) {
         Map<String, String> tokens = new HashMap<>();
         ConfigurationSection section = listener.getConfigurationSection("tokens");
@@ -216,7 +198,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         return Map.copyOf(tokens);
     }
 
-    /** Called on a connection thread. */
+    // called on a connection thread
     private void onVoteFromNetwork(Vote vote) {
         if (isEnabled()) {
             Bukkit.getScheduler().runTask(this, () -> votes.receive(vote));
@@ -235,7 +217,6 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         return getConfig().getString("messages." + key, "");
     }
 
-    /** Logs each vote and each rejected connection. */
     public boolean debug() {
         return getConfig().getBoolean("settings.debug", false);
     }
@@ -248,7 +229,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         return switch (libreforge) {
             case HOOKED, ALREADY_LOADED -> "enabled";
             case NOT_INSTALLED -> "libreforge not installed";
-            case FAILED -> "FAILED — see the startup log";
+            case FAILED -> "FAILED (see the startup log)";
         };
     }
 

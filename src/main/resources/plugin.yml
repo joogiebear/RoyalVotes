@@ -4,8 +4,8 @@ main: com.mystipixel.royalvotes.RoyalVotesPlugin
 api-version: '26.2'
 author: Mystipixel
 description: Receives Votifier votes itself and pays vote rewards, streaks, milestones and vote parties.
-# RoyalVotes is the vote receiver, so plugins that depend on "Votifier" are satisfied by it. It cannot
-# run alongside Votifier/NuVotifier — it replaces them.
+# RoyalVotes is the vote receiver, so plugins that depend on "Votifier" are satisfied by it. It
+# replaces Votifier/NuVotifier and cannot run alongside them.
 provides: [Votifier]
 # Placeholders in reward text resolve through PlaceholderAPI when it is installed. eco is listed only
 # for ordering, so the libreforge vote trigger is switched on as early as possible.

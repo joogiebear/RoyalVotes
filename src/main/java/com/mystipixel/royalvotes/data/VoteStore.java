@@ -22,18 +22,16 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * Everything that survives a restart: per-player totals, the offline queue and the party counter, in
- * one {@code data.yml}.
- *
- * <p>Main-thread only. Saving serialises on the main thread (cheap — it is a string) and writes on an
- * async one, through a temp file, so a crash mid-write cannot leave a truncated data file behind.
+ * Player totals, the offline queue and the party counter, in one {@code data.yml}. Main-thread only.
+ * Saves serialise on the main thread and write async through a temp file, so a crash mid-write cannot
+ * truncate the data file.
  */
 public final class VoteStore {
 
     private final JavaPlugin plugin;
     private final File file;
     private final Map<UUID, PlayerStats> stats = new HashMap<>();
-    /** lowercase username → votes waiting for them. Keyed by name because that is all a vote carries. */
+    // lowercase username to queued votes; keyed by name because that is all a vote carries
     private final Map<String, List<PendingVote>> pending = new LinkedHashMap<>();
     private int partyCount;
     private boolean dirty;
@@ -171,7 +169,7 @@ public final class VoteStore {
         return votes == null ? 0 : votes.size();
     }
 
-    /** Drop queued votes older than the cutoff — mistyped usernames would otherwise sit here forever. */
+    /** Drop queued votes older than the cutoff; mistyped usernames would otherwise sit here forever. */
     public int expire(long cutoffMillis) {
         int removed = 0;
         var iterator = pending.values().iterator();
@@ -268,7 +266,7 @@ public final class VoteStore {
                     Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (IOException failed) {
-                plugin.getLogger().log(Level.SEVERE, "Could not save data.yml — vote totals since the"
+                plugin.getLogger().log(Level.SEVERE, "Could not save data.yml. Vote totals since the"
                         + " last successful save will be lost on restart", failed);
             }
         }
