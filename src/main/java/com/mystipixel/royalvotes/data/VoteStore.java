@@ -8,6 +8,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -38,6 +39,8 @@ public final class VoteStore {
     private boolean dirty;
     private List<PlayerStats> topCache;
     private final Object writeLock = new Object();
+    private long saveSequence;
+    private long writtenSequence;
 
     public VoteStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -207,10 +210,11 @@ public final class VoteStore {
         }
         dirty = false;
         String serialised = serialise();
+        long sequence = ++saveSequence;
         if (async) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> write(serialised));
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> write(serialised, sequence));
         } else {
-            write(serialised);
+            write(serialised, sequence);
         }
     }
 
@@ -244,8 +248,13 @@ public final class VoteStore {
         return yaml.saveToString();
     }
 
-    private void write(String serialised) {
+    private void write(String serialised, long sequence) {
         synchronized (writeLock) {
+            // async tasks can run out of order; never let an older snapshot replace a newer one
+            if (sequence <= writtenSequence) {
+                return;
+            }
+            writtenSequence = sequence;
             try {
                 File folder = file.getParentFile();
                 if (!folder.isDirectory() && !folder.mkdirs()) {
@@ -253,7 +262,11 @@ public final class VoteStore {
                 }
                 File temp = new File(folder, "data.yml.tmp");
                 Files.writeString(temp.toPath(), serialised, StandardCharsets.UTF_8);
-                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException unsupported) {
+                    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
             } catch (IOException failed) {
                 plugin.getLogger().log(Level.SEVERE, "Could not save data.yml — vote totals since the"
                         + " last successful save will be lost on restart", failed);
