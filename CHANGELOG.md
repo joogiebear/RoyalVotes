@@ -1,3 +1,8 @@
+## 2026.41.2 - 2026-10-11
+
+### Fixes
+- keep libreforge's register_vote trigger counting after a reload (`47643d1`)
+
 ## 2026.41.1 - 2026-10-11
 
 ### Fixes
