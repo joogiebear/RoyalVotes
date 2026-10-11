@@ -31,59 +31,66 @@ public final class RoyalVotesCommand implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "reload" -> {
                 plugin.reload();
-                say(sender, "&aReloaded. &7Listener: " + plugin.listenerSummary());
+                say(sender, plugin.message("admin.reloaded", "listener", plugin.listenerSummary()));
             }
             case "status" -> {
-                say(sender, "&6RoyalVotes &7" + plugin.getPluginMeta().getVersion());
-                say(sender, "&7Listener: &f" + plugin.listenerSummary());
-                say(sender, "&7libreforge register_vote: &f" + plugin.libreforgeSummary());
-                say(sender, "&7Vote party: &f" + (plugin.votes().partyEnabled()
-                        ? plugin.store().partyCount() + "/" + plugin.votes().partyRequired() : "off"));
+                say(sender, plugin.message("admin.status.header", "version", plugin.getPluginMeta().getVersion()));
+                say(sender, plugin.message("admin.status.listener", "listener", plugin.listenerSummary()));
+                say(sender, plugin.message("admin.status.libreforge", "libreforge", plugin.libreforgeSummary()));
+                String party = plugin.votes().partyEnabled()
+                        ? plugin.message("admin.status.party-progress",
+                                "current", String.valueOf(plugin.store().partyCount()),
+                                "required", String.valueOf(plugin.votes().partyRequired()))
+                        : plugin.message("admin.status.party-off");
+                say(sender, plugin.message("admin.status.party", "party", party));
             }
             case "fakevote" -> {
                 if (args.length < 2) {
-                    say(sender, "&cUsage: /" + label + " fakevote <player> [service]");
+                    say(sender, plugin.message("admin.fakevote.usage", "label", label));
                     return true;
                 }
                 // same path as a real vote: exercises the queue, rewards and VotifierEvent (battlepass tasks)
                 String service = args.length > 2 ? args[2] : "fakevote";
                 plugin.votes().receive(new Vote(service, args[1], "127.0.0.1",
                         String.valueOf(System.currentTimeMillis() / 1000)));
-                say(sender, "&aSent a test vote for &f" + args[1] + "&a via &f" + service + "&a."
-                        + (Bukkit.getPlayerExact(args[1]) == null ? " &7They are offline, so it is queued." : ""));
+                boolean offline = Bukkit.getPlayerExact(args[1]) == null;
+                say(sender, offline
+                        ? plugin.message("admin.fakevote.sent-queued", "player", args[1], "service", service)
+                        : plugin.message("admin.fakevote.sent", "player", args[1], "service", service));
             }
             case "stats" -> {
                 if (args.length < 2) {
-                    say(sender, "&cUsage: /" + label + " stats <player>");
+                    say(sender, plugin.message("admin.stats.usage", "label", label));
                     return true;
                 }
                 PlayerStats stats = plugin.store().findByName(args[1]);
                 int queued = plugin.store().pendingCount(args[1]);
                 if (stats == null) {
-                    say(sender, "&f" + args[1] + " &7has no delivered votes. Queued: &f" + queued);
+                    say(sender, plugin.message("admin.stats.none", "player", args[1], "queued", String.valueOf(queued)));
                     return true;
                 }
-                say(sender, "&f" + stats.name() + "&7: total &f" + stats.total() + "&7, streak &f"
-                        + plugin.votes().liveStreak(stats) + "&7 (best &f" + stats.bestStreak()
-                        + "&7), queued &f" + queued);
+                say(sender, plugin.message("admin.stats.line", "player", stats.name(),
+                        "total", String.valueOf(stats.total()),
+                        "streak", String.valueOf(plugin.votes().liveStreak(stats)),
+                        "best", String.valueOf(stats.bestStreak()), "queued", String.valueOf(queued)));
             }
             case "party" -> {
                 if (args.length >= 2 && args[1].equalsIgnoreCase("start")) {
                     plugin.store().partyCount(0);
                     plugin.votes().startParty();
-                    say(sender, "&aVote party started.");
+                    say(sender, plugin.message("admin.party.started"));
                 } else if (args.length >= 3 && args[1].equalsIgnoreCase("set")) {
                     try {
                         plugin.store().partyCount(Integer.parseInt(args[2]));
-                        say(sender, "&aParty counter set to &f" + plugin.store().partyCount() + "&a.");
+                        say(sender, plugin.message("admin.party.set", "count", String.valueOf(plugin.store().partyCount())));
                     } catch (NumberFormatException notNumber) {
-                        say(sender, "&c'" + args[2] + "' is not a number.");
+                        say(sender, plugin.message("admin.party.not-a-number", "value", args[2]));
                     }
                 } else {
-                    say(sender, "&cUsage: /" + label + " party <start|set <count>>");
+                    say(sender, plugin.message("admin.party.usage", "label", label));
                 }
             }
-            default -> say(sender, "&cUsage: /" + label + " <" + String.join("|", SUBCOMMANDS) + ">");
+            default -> say(sender, plugin.message("admin.usage", "label", label));
         }
         return true;
     }
@@ -106,6 +113,8 @@ public final class RoyalVotesCommand implements CommandExecutor, TabCompleter {
     }
 
     private static void say(CommandSender sender, String message) {
-        sender.sendMessage(Text.chat(message));
+        if (!message.isEmpty()) {
+            sender.sendMessage(Text.chat(message));
+        }
     }
 }

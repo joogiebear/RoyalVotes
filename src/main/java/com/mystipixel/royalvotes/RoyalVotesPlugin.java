@@ -7,6 +7,7 @@ import com.mystipixel.royalvotes.hook.LibreforgeHook;
 import com.mystipixel.royalvotes.hook.VotesExpansion;
 import com.mystipixel.royalvotes.net.RsaKeys;
 import com.mystipixel.royalvotes.net.VoteServer;
+import com.mystipixel.royalvotes.util.Text;
 import com.vexsoftware.votifier.model.Vote;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
@@ -39,7 +40,12 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
     private VoteStore store;
     private VoteService votes;
     private VoteServer server;
-    private String listenerSummary = "not started";
+    private enum ListenerState { NOT_STARTED, DISABLED, LISTENING, FAILED }
+
+    private ListenerState listenerState = ListenerState.NOT_STARTED;
+    private String listenerHost = "";
+    private int listenerPort;
+    private boolean listenerV1;
     private LibreforgeHook.Result libreforge = LibreforgeHook.Result.NOT_INSTALLED;
 
     @Override
@@ -145,11 +151,13 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }
         ConfigurationSection config = getConfig().getConfigurationSection("listener");
         if (config == null || !config.getBoolean("enabled", true)) {
-            listenerSummary = "disabled in config";
+            listenerState = ListenerState.DISABLED;
             return;
         }
         String host = config.getString("host", "0.0.0.0");
         int port = config.getInt("port", 8192);
+        listenerHost = host;
+        listenerPort = port;
 
         Map<String, String> tokens = loadTokens(config);
         KeyPair keys = null;
@@ -167,11 +175,13 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
                 this::onVoteFromNetwork, debug());
         try {
             server.start();
-            listenerSummary = host + ":" + port + " (v2 tokens" + (keys == null ? "" : " + v1 RSA") + ")";
-            getLogger().info("Listening for votes on " + listenerSummary + ".");
+            listenerState = ListenerState.LISTENING;
+            listenerV1 = keys != null;
+            getLogger().info("Listening for votes on " + host + ":" + port + " (v2 tokens"
+                    + (keys == null ? "" : " + v1 RSA") + ").");
         } catch (Exception unbindable) {
             server = null;
-            listenerSummary = "FAILED to bind " + host + ":" + port;
+            listenerState = ListenerState.FAILED;
             getLogger().severe("Could not listen on " + host + ":" + port + " (" + unbindable.getMessage()
                     + "). Is another process using the port? Votes will not arrive until this is fixed.");
         }
@@ -212,9 +222,13 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    /** A line from the {@code messages} section, or empty when the owner has blanked it to silence it. */
-    public String message(String key) {
-        return getConfig().getString("messages." + key, "");
+    /**
+     * A line from the {@code messages} section with {@code %name%} placeholders filled from name/value pairs,
+     * or empty when the owner has blanked it to silence it. A key missing from the server's config.yml uses
+     * the bundled default.
+     */
+    public String message(String key, String... replacements) {
+        return Text.fill(getConfig().getString("messages." + key), replacements);
     }
 
     public boolean debug() {
@@ -222,14 +236,22 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
     }
 
     public String listenerSummary() {
-        return listenerSummary;
+        String port = String.valueOf(listenerPort);
+        return switch (listenerState) {
+            case NOT_STARTED -> message("admin.listener.not-started");
+            case DISABLED -> message("admin.listener.disabled");
+            case LISTENING -> listenerV1
+                    ? message("admin.listener.v1-and-v2", "host", listenerHost, "port", port)
+                    : message("admin.listener.v2-only", "host", listenerHost, "port", port);
+            case FAILED -> message("admin.listener.failed", "host", listenerHost, "port", port);
+        };
     }
 
     public String libreforgeSummary() {
         return switch (libreforge) {
-            case HOOKED, ALREADY_LOADED -> "enabled";
-            case NOT_INSTALLED -> "libreforge not installed";
-            case FAILED -> "FAILED (see the startup log)";
+            case HOOKED, ALREADY_LOADED -> message("admin.libreforge.enabled");
+            case NOT_INSTALLED -> message("admin.libreforge.not-installed");
+            case FAILED -> message("admin.libreforge.failed");
         };
     }
 
