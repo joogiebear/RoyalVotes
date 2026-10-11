@@ -167,9 +167,9 @@ public final class VoteService {
         }
         store.saveIfDirty(true);
         if (delivered > 0) {
-            String message = plugin.message("queued-delivered");
+            String message = plugin.message("queued-delivered", "amount", String.valueOf(delivered));
             if (!message.isEmpty()) {
-                player.sendMessage(Text.chat(message.replace("%amount%", String.valueOf(delivered))));
+                player.sendMessage(Text.chat(message));
             }
         }
     }

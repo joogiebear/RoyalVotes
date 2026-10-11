@@ -150,3 +150,41 @@ messages:
   top-header: "&a&lTop voters &8(&7page %page%/%pages%&8)"
   top-line: "  &f%rank%. &e%player% &8- &f%total%"
   top-empty: "  &7Nobody has voted yet."
+
+  # /royalvotes (admin) output.
+  admin:
+    usage: "&cUsage: /%label% <reload|status|fakevote|stats|party>"
+    reloaded: "&aReloaded. &7Listener: %listener%"
+    status:
+      header: "&6RoyalVotes &7%version%"
+      listener: "&7Listener: &f%listener%"
+      libreforge: "&7libreforge register_vote: &f%libreforge%"
+      # %party% is party-progress or party-off below
+      party: "&7Vote party: &f%party%"
+      party-progress: "%current%/%required%"
+      party-off: "off"
+    # %listener% in the lines above
+    listener:
+      not-started: "not started"
+      disabled: "disabled in config"
+      v2-only: "%host%:%port% (v2 tokens)"
+      v1-and-v2: "%host%:%port% (v2 tokens + v1 RSA)"
+      failed: "FAILED to bind %host%:%port%"
+    # %libreforge% in the status line
+    libreforge:
+      enabled: "enabled"
+      not-installed: "libreforge not installed"
+      failed: "FAILED (see the startup log)"
+    fakevote:
+      usage: "&cUsage: /%label% fakevote <player> [service]"
+      sent: "&aSent a test vote for &f%player%&a via &f%service%&a."
+      sent-queued: "&aSent a test vote for &f%player%&a via &f%service%&a. &7They are offline, so it is queued."
+    stats:
+      usage: "&cUsage: /%label% stats <player>"
+      none: "&f%player% &7has no delivered votes. Queued: &f%queued%"
+      line: "&f%player%&7: total &f%total%&7, streak &f%streak%&7 (best &f%best%&7), queued &f%queued%"
+    party:
+      usage: "&cUsage: /%label% party <start|set <count>>"
+      started: "&aVote party started."
+      set: "&aParty counter set to &f%count%&a."
+      not-a-number: "&c'%value%' is not a number."

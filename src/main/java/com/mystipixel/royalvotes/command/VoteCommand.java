@@ -41,7 +41,7 @@ public final class VoteCommand implements CommandExecutor {
         for (String line : config.getStringList("links.header")) {
             sender.sendMessage(Text.chat(fill(line, stats)));
         }
-        String format = config.getString("links.line", "&8» &e%name%");
+        String format = config.getString("links.line");
         for (Map<?, ?> site : config.getMapList("links.sites")) {
             Object name = site.get("name");
             Object url = site.get("url");
@@ -80,17 +80,16 @@ public final class VoteCommand implements CommandExecutor {
         }
         page = Math.min(Math.max(page, 1), pages);
 
-        sender.sendMessage(Text.chat(plugin.message("top-header")
-                .replace("%page%", String.valueOf(page)).replace("%pages%", String.valueOf(pages))));
+        sender.sendMessage(Text.chat(plugin.message("top-header",
+                "page", String.valueOf(page), "pages", String.valueOf(pages))));
         if (top.isEmpty()) {
             sender.sendMessage(Text.chat(plugin.message("top-empty")));
             return;
         }
-        String format = plugin.message("top-line");
         for (int i = (page - 1) * PAGE_SIZE; i < Math.min(top.size(), page * PAGE_SIZE); i++) {
             PlayerStats entry = top.get(i);
-            sender.sendMessage(Text.chat(format.replace("%rank%", String.valueOf(i + 1))
-                    .replace("%player%", entry.name()).replace("%total%", String.valueOf(entry.total()))));
+            sender.sendMessage(Text.chat(plugin.message("top-line", "rank", String.valueOf(i + 1),
+                    "player", entry.name(), "total", String.valueOf(entry.total()))));
         }
     }
 }

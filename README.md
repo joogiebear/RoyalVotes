@@ -72,6 +72,9 @@ logged with the reason (wrong key, wrong token, unknown service).
 | `/royalvotes stats <player>` | `royalvotes.admin` | A player's totals and queued votes. |
 | `/royalvotes party <start\|set <n>>` | `royalvotes.admin` | Start a party or set the counter. |
 
+All command output, including the admin commands, is under `messages:` in `config.yml`. A message
+missing from your `config.yml` uses the plugin's built-in default; set one to `""` to silence it.
+
 ## Placeholders
 
 `%royalvotes_total%` · `%royalvotes_streak%` · `%royalvotes_best_streak%` ·
