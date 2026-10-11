@@ -1,3 +1,8 @@
+## 2026.41.1 - 2026-10-11
+
+### Fixes
+- let RoyalVotes survive a PlugManX reload (`b5bc4c0`)
+
 ## 2026.41.0 - 2026-10-10
 
 ### Fixes
