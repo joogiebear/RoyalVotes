@@ -213,6 +213,7 @@ public final class VoteService {
         Vote event = new Vote(vote.service(), player.getName(), vote.address(),
                 String.valueOf(vote.receivedAt() / 1000));
         Bukkit.getPluginManager().callEvent(new VotifierEvent(event));
+        plugin.forwardToLibreforge(event);
     }
 
     private void countTowardsParty() {
