@@ -4,6 +4,7 @@ import com.mystipixel.royalvotes.command.RoyalVotesCommand;
 import com.mystipixel.royalvotes.command.VoteCommand;
 import com.mystipixel.royalvotes.data.VoteStore;
 import com.mystipixel.royalvotes.hook.LibreforgeHook;
+import com.mystipixel.royalvotes.hook.StaleVoteForwarder;
 import com.mystipixel.royalvotes.hook.VotesExpansion;
 import com.mystipixel.royalvotes.net.RsaKeys;
 import com.mystipixel.royalvotes.net.VoteServer;
@@ -21,6 +22,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.security.KeyPair;
@@ -53,6 +55,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
     private int listenerPort;
     private boolean listenerV1;
     private LibreforgeHook.Result libreforge = LibreforgeHook.Result.NOT_INSTALLED;
+    private StaleVoteForwarder libreforgeForwarder;
 
     @Override
     public void onEnable() {
@@ -163,6 +166,60 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
             getLogger().info("Enabled libreforge's register_vote trigger. EcoBattlepass and other eco"
                     + " plugins can now react to votes.");
         }
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("libreforge");
+        if (libreforge == LibreforgeHook.Result.HOOKED) {
+            try {
+                StaleVoteForwarder.pinVote(plugin.getClass().getClassLoader());
+            } catch (ClassNotFoundException notVisible) {
+                // only costs the forwarding after a later reload, which then needs a restart instead
+                getLogger().fine("libreforge cannot see the Vote class yet: " + notVisible);
+            }
+        } else if (libreforge == LibreforgeHook.Result.ALREADY_LOADED) {
+            findStaleLibreforgeListener(plugin);
+        }
+    }
+
+    // The trigger already existed, which with no other Votifier installed means RoyalVotes was reloaded.
+    private void findStaleLibreforgeListener(Plugin plugin) {
+        try {
+            libreforgeForwarder = StaleVoteForwarder.find(plugin.getClass().getClassLoader());
+            if (libreforgeForwarder != null) {
+                getLogger().info("RoyalVotes was reloaded without a restart; votes are handed to libreforge's"
+                        + " register_vote trigger directly. Restart the server when convenient.");
+            }
+        } catch (ReflectiveOperationException | LinkageError unreachable) {
+            libreforge = LibreforgeHook.Result.FAILED;
+            getLogger().warning("Could not reach libreforge's register_vote trigger (" + unreachable + ")."
+                    + " If RoyalVotes was reloaded without a restart, EcoBattlepass vote tasks will not count"
+                    + " until the server is restarted. Vote rewards still work.");
+        }
+    }
+
+    /** Called after each {@code VotifierEvent}; does nothing unless RoyalVotes was reloaded under libreforge. */
+    public void forwardToLibreforge(Vote vote) {
+        if (libreforgeForwarder == null) {
+            return;
+        }
+        try {
+            libreforgeForwarder.forward(vote);
+        } catch (InvocationTargetException listenerFailed) {
+            if (!(listenerFailed.getCause() instanceof LinkageError)) {
+                // as Bukkit does for a throwing listener: log it and keep delivering
+                getLogger().log(Level.WARNING, "libreforge's register_vote trigger failed for a vote",
+                        listenerFailed.getCause());
+                return;
+            }
+            stopForwarding(listenerFailed.getCause());
+        } catch (ReflectiveOperationException | LinkageError failed) {
+            stopForwarding(failed);
+        }
+    }
+
+    private void stopForwarding(Throwable failed) {
+        libreforgeForwarder = null;
+        libreforge = LibreforgeHook.Result.FAILED;
+        getLogger().log(Level.WARNING, "Could not hand a vote to libreforge's register_vote trigger after"
+                + " a reload; EcoBattlepass vote tasks will not count until the server is restarted.", failed);
     }
 
     public void reload() {
