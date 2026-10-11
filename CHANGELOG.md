@@ -1,3 +1,18 @@
+## 2026.41.0 - 2026-10-10
+
+### Fixes
+- use the ISO week-year for release versions (`422d91b`)
+
+### Refactors
+- read all player-facing text from config (`5f577af`)
+
+### Documentation
+- add AGENTS.md with the suite's development standards (`ba56f9e`)
+- add MIT license (`a93cd13`)
+
+### Other
+- Save votes right after a payout (`b10d4d0`)
+
 ## 2026.39.0 — 2026-09-23
 
 ### ✨ Features
