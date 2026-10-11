@@ -17,14 +17,18 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginEnableEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.security.KeyPair;
 import java.security.SecureRandom;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 
 /**
@@ -40,6 +44,8 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
     private VoteStore store;
     private VoteService votes;
     private VoteServer server;
+    private VotesExpansion expansion;
+    private Metrics metrics;
     private enum ListenerState { NOT_STARTED, DISABLED, LISTENING, FAILED }
 
     private ListenerState listenerState = ListenerState.NOT_STARTED;
@@ -51,8 +57,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        if (Bukkit.getPluginManager().getPlugin("Votifier") != null
-                && Bukkit.getPluginManager().getPlugin("Votifier") != this) {
+        if (otherVotifier().isPresent()) {
             // Two receivers would fight over the port and both define the com.vexsoftware classes.
             getLogger().severe("Another Votifier plugin is installed. RoyalVotes replaces it: remove"
                     + " NuVotifier/Votifier (its rsa folder can be copied into plugins/RoyalVotes) and"
@@ -80,7 +85,8 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
         }
 
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            new VotesExpansion(this).register();
+            expansion = new VotesExpansion(this);
+            expansion.register();
         }
         hookLibreforge();
         startListener();
@@ -96,7 +102,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
 
     // owners who want no reporting disable it globally in plugins/bStats/config.yml
     private void setupMetrics() {
-        Metrics metrics = new Metrics(this, BSTATS_PLUGIN_ID);
+        metrics = new Metrics(this, BSTATS_PLUGIN_ID);
         // The enum name, not libreforgeSummary(): that is a sentence for an admin, not a pie label.
         metrics.addCustomChart(new SimplePie("libreforge_hook",
                 () -> libreforge.name().toLowerCase(java.util.Locale.ROOT)));
@@ -108,14 +114,35 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
                 () -> String.valueOf(Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI"))));
     }
 
+    // Bukkit drops our listeners, tasks and services itself; these it does not know about
     @Override
     public void onDisable() {
         if (server != null) {
             server.stop();
+            server = null;
+        }
+        if (expansion != null) {
+            expansion.unregister();
+            expansion = null;
+        }
+        if (metrics != null) {
+            metrics.shutdown();
+            metrics = null;
         }
         if (store != null) {
             store.saveIfDirty(false);
         }
+    }
+
+    private Optional<String> otherVotifier() {
+        List<VotifierConflict.Installed> installed = new ArrayList<>();
+        for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
+            if (plugin != this) {
+                installed.add(new VotifierConflict.Installed(plugin.getName(),
+                        plugin.getPluginMeta().getProvidedPlugins()));
+            }
+        }
+        return VotifierConflict.find(getName(), installed);
     }
 
     // libreforge is loaded by whichever eco plugin enables first, possibly after us, so retry when it
