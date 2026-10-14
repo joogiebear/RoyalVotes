@@ -12,20 +12,22 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 /**
- * Player totals, the offline queue and the party counter, in one {@code data.yml}. Main-thread only.
+ * Player totals, the offline queue and the party counter, in one {@code data.yml}. Changes are main-thread
+ * only; {@link #peek}, {@link #pendingCount} and {@link #top} may also be read by async placeholders.
  * Saves copy the data into a plain snapshot on the main thread, then build the YAML and write it through
  * a temp file on one writer thread, so a crash mid-write cannot truncate the data file and writes land
  * in order.
@@ -34,12 +36,15 @@ public final class VoteStore {
 
     private final JavaPlugin plugin;
     private final File file;
-    private final Map<UUID, PlayerStats> stats = new HashMap<>();
+    private final Map<UUID, PlayerStats> stats = new ConcurrentHashMap<>();
     // lowercase username to queued votes; keyed by name because that is all a vote carries
-    private final Map<String, List<PendingVote>> pending = new LinkedHashMap<>();
+    private final Map<String, List<PendingVote>> pending = new ConcurrentHashMap<>();
     private int partyCount;
     private boolean dirty;
-    private List<PlayerStats> topCache;
+    // rebuilt on the main thread only; async readers get the last published list
+    private volatile List<PlayerStats> topCache = List.of();
+    private volatile boolean topStale = true;
+    private final AtomicBoolean topRebuildQueued = new AtomicBoolean();
     private final Object writeLock = new Object();
     private long saveSequence;
     private long writtenSequence;
@@ -64,7 +69,7 @@ public final class VoteStore {
     public void load() {
         stats.clear();
         pending.clear();
-        topCache = null;
+        topStale = true;
         if (!file.isFile()) {
             return;
         }
@@ -140,15 +145,26 @@ public final class VoteStore {
         return null;
     }
 
-    /** Most votes first. Cached until the next change, since placeholders ask for it every tick or so. */
+    /**
+     * Most votes first. Cached until the next change, since placeholders ask for it every tick or so.
+     * Off the main thread this is the last list built there, and a rebuild is queued if it is stale.
+     */
     public List<PlayerStats> top() {
-        if (topCache == null) {
-            List<PlayerStats> sorted = new ArrayList<>(stats.values());
-            sorted.removeIf(entry -> entry.total() <= 0);
-            // Lambdas, not method references: total() and name() are overloaded with their setters.
-            sorted.sort(Comparator.comparingInt((PlayerStats entry) -> entry.total()).reversed()
-                    .thenComparing(entry -> entry.name(), String.CASE_INSENSITIVE_ORDER));
-            topCache = List.copyOf(sorted);
+        if (topStale) {
+            if (plugin.getServer().isPrimaryThread()) {
+                topStale = false;
+                List<PlayerStats> sorted = new ArrayList<>(stats.values());
+                sorted.removeIf(entry -> entry.total() <= 0);
+                // Lambdas, not method references: total() and name() are overloaded with their setters.
+                sorted.sort(Comparator.comparingInt((PlayerStats entry) -> entry.total()).reversed()
+                        .thenComparing(entry -> entry.name(), String.CASE_INSENSITIVE_ORDER));
+                topCache = List.copyOf(sorted);
+            } else if (plugin.isEnabled() && topRebuildQueued.compareAndSet(false, true)) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    topRebuildQueued.set(false);
+                    top();
+                });
+            }
         }
         return topCache;
     }
@@ -215,7 +231,7 @@ public final class VoteStore {
 
     public void markDirty() {
         dirty = true;
-        topCache = null;
+        topStale = true;
     }
 
     public void saveIfDirty(boolean async) {
