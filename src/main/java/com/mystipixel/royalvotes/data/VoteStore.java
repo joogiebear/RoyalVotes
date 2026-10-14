@@ -1,6 +1,5 @@
 package com.mystipixel.royalvotes.data;
 
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -19,12 +18,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
  * Player totals, the offline queue and the party counter, in one {@code data.yml}. Main-thread only.
- * Saves serialise on the main thread and write async through a temp file, so a crash mid-write cannot
- * truncate the data file.
+ * Saves copy the data into a plain snapshot on the main thread, then build the YAML and write it through
+ * a temp file on one writer thread, so a crash mid-write cannot truncate the data file and writes land
+ * in order.
  */
 public final class VoteStore {
 
@@ -39,6 +43,18 @@ public final class VoteStore {
     private final Object writeLock = new Object();
     private long saveSequence;
     private long writtenSequence;
+    private final ExecutorService writer = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "RoyalVotes data writer");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private record StatsRow(UUID uuid, String name, int total, int streak, int bestStreak,
+                            long lastVoteDay, long lastVote) {
+    }
+
+    private record Snapshot(int partyCount, List<StatsRow> stats, Map<String, List<PendingVote>> pending) {
+    }
 
     public VoteStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -207,19 +223,50 @@ public final class VoteStore {
             return;
         }
         dirty = false;
-        String serialised = serialise();
+        Snapshot snapshot = snapshot();
         long sequence = ++saveSequence;
         if (async) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> write(serialised, sequence));
-        } else {
-            write(serialised, sequence);
+            try {
+                writer.execute(() -> write(serialise(snapshot), sequence));
+                return;
+            } catch (RejectedExecutionException closed) {
+                // writer already shut down; fall through and write here
+            }
         }
+        write(serialise(snapshot), sequence);
     }
 
-    private String serialise() {
-        YamlConfiguration yaml = new YamlConfiguration();
-        yaml.set("party.count", partyCount);
+    /** Finish queued writes, then write whatever is still dirty on this thread. Call on disable. */
+    public void close() {
+        writer.shutdown();
+        try {
+            if (!writer.awaitTermination(30, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("data.yml writer did not finish in 30s; saving anyway.");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+        saveIfDirty(false);
+    }
+
+    // field copies only, so the main thread never pays for the YAML
+    private Snapshot snapshot() {
+        List<StatsRow> rows = new ArrayList<>(stats.size());
         for (PlayerStats entry : stats.values()) {
+            rows.add(new StatsRow(entry.uuid(), entry.name(), entry.total(), entry.streak(),
+                    entry.bestStreak(), entry.lastVoteDay(), entry.lastVote()));
+        }
+        Map<String, List<PendingVote>> queued = new LinkedHashMap<>();
+        for (Map.Entry<String, List<PendingVote>> entry : pending.entrySet()) {
+            queued.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        return new Snapshot(partyCount, rows, queued);
+    }
+
+    private static String serialise(Snapshot snapshot) {
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.set("party.count", snapshot.partyCount());
+        for (StatsRow entry : snapshot.stats()) {
             String base = "players." + entry.uuid();
             yaml.set(base + ".name", entry.name());
             yaml.set(base + ".total", entry.total());
@@ -231,7 +278,7 @@ public final class VoteStore {
         // Bedrock-style names can start with '.', which is YamlConfiguration's path separator, so the
         // key is made path-safe. Loading never reads the key back: each vote carries its username.
         ConfigurationSection queued = yaml.createSection("pending");
-        for (Map.Entry<String, List<PendingVote>> entry : pending.entrySet()) {
+        for (Map.Entry<String, List<PendingVote>> entry : snapshot.pending().entrySet()) {
             List<Map<String, Object>> votes = new ArrayList<>();
             for (PendingVote vote : entry.getValue()) {
                 Map<String, Object> raw = new LinkedHashMap<>();
@@ -248,7 +295,7 @@ public final class VoteStore {
 
     private void write(String serialised, long sequence) {
         synchronized (writeLock) {
-            // async tasks can run out of order; never let an older snapshot replace a newer one
+            // the shutdown write can race a queued one; never let an older snapshot replace a newer one
             if (sequence <= writtenSequence) {
                 return;
             }

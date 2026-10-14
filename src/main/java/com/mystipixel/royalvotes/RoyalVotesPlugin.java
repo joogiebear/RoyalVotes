@@ -40,6 +40,8 @@ import java.util.logging.Level;
 public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
 
     private static final long HOUSEKEEPING_TICKS = 20L * 60;
+    // votes mark the store dirty; this coalesces a burst into one write
+    private static final long SAVE_TICKS = 20L * 3;
     // identifies the plugin, not the server, so it is fixed rather than configurable
     private static final int BSTATS_PLUGIN_ID = 34176;
 
@@ -98,6 +100,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
             votes.expireQueue();
             store.saveIfDirty(true);
         }, HOUSEKEEPING_TICKS, HOUSEKEEPING_TICKS);
+        Bukkit.getScheduler().runTaskTimer(this, () -> store.saveIfDirty(true), SAVE_TICKS, SAVE_TICKS);
 
         setupMetrics();
         getLogger().info("RoyalVotes enabled, " + votes.rewardCount() + " reward(s) configured.");
@@ -133,7 +136,7 @@ public final class RoyalVotesPlugin extends JavaPlugin implements Listener {
             metrics = null;
         }
         if (store != null) {
-            store.saveIfDirty(false);
+            store.close();
         }
     }
 
